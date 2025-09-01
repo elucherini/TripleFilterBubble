@@ -80,6 +80,31 @@ class Model:
                 self.infobits[new_central_infobit.id] = new_central_infobit
                 for guy in self.guys.values():
                     self.try_integrate_infobit(guy, new_central_infobit, params)
+        elif params.new_info_mode == "individual":
+            # The difference here is that each guy creates one infobit and tries to integrate it
+            # as opposed to one infobit shared by all guys
+            for guy in self.guys.values():
+                new_individual_infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
+                self.infobits[new_individual_infobit.id] = new_individual_infobit
+                self.try_integrate_infobit(guy, new_individual_infobit, params)
+        elif params.new_info_mode == ("select close infobits", "select distant infobits"):
+            is_close = params.new_info_mode == "select close infobits"
+            for guy in self.guys.values():
+                # Find all infobits that are not linked and fit closeness criteria
+                candidate_infobits = []
+                linked_infobits = self.infolink_neighbors(guy)
+                for infobit_id in self.infobits:
+                    if infobit_id in linked_infobits:
+                        continue
+                    distance = float(pairwise_distances(guy.position, self.infobits[infobit_id].position)) / (params.max_pxcor + 0.5)
+                    if (is_close and distance < params.acceptance_latitude) or ((not is_close) and distance >= params.acceptance_latitude):
+                        candidate_infobits.append(infobit_id)
+                if not candidate_infobits or len(candidate_infobits) < len(self.guys):
+                    new_infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
+                    self.try_integrate_infobit(guy, new_infobit, params)
+                else:
+                    random_infobit_id = InfobitId(int(self.rng.choice(candidate_infobits)))
+                    self.try_integrate_infobit(guy, self.infobits[random_infobit_id], params)
         else:
             raise ValueError(f"Not yet implemented new_info_mode: {params.new_info_mode}")
 
@@ -167,13 +192,18 @@ class Model:
                     self.G.add_edge(me, new_friend)
                     self.G.remove_edge(guy1_id, guy2_id)
 
-    def update_infobits(self, params: Params):
+    def update_infobits(self):
+        indices_to_remove = []
         for infobit_id in self.infobits:
             deg = self.H.degree_of_info(infobit_id)
             if deg == 0:
-                # If degree is 0, the infobit is just not connected to any guys; no need to do anything
+                # If degree is 0, the infobit is just not connected to any guys; so no need to remove it from H
+                # We do need to remove it from the infobits dict
+                indices_to_remove.append(infobit_id)
                 continue
             self.infobits[infobit_id].popularity = deg
+        for infobit_id in indices_to_remove:
+            self.infobits.pop(infobit_id)
 
 
     def run(self):
@@ -186,7 +216,7 @@ class Model:
                 self.birth_death(self.params)
             if self.params.refriend_probability > 0:
                 self.refriend(self.params)
-            self.update_infobits(self.params)
+            self.update_infobits()
             print(f"Time taken for tick {tick}: {time.time() - start_time} seconds")
             # visualize(self.params)
             # if tick % self.params.plot_update_every == 0:
