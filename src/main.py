@@ -18,7 +18,6 @@ class Model:
     params: Params
     infobits: dict[InfobitId, Infobit] = field(default_factory=dict)
 
-
     @staticmethod
     def make_group_network(guy: Guy, guys: dict[GuyId, Guy], G: nx.Graph, params: Params, rng: np.random.Generator):
         n = params.numguys
@@ -87,7 +86,7 @@ class Model:
                 new_individual_infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
                 self.infobits[new_individual_infobit.id] = new_individual_infobit
                 self.try_integrate_infobit(guy, new_individual_infobit, params)
-        elif params.new_info_mode == ("select close infobits", "select distant infobits"):
+        elif params.new_info_mode in ("select close infobits", "select distant infobits"):
             is_close = params.new_info_mode == "select close infobits"
             for guy in self.guys.values():
                 # Find all infobits that are not linked and fit closeness criteria
@@ -101,6 +100,7 @@ class Model:
                         candidate_infobits.append(infobit_id)
                 if not candidate_infobits or len(candidate_infobits) < len(self.guys):
                     new_infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
+                    self.infobits[new_infobit.id] = new_infobit
                     self.try_integrate_infobit(guy, new_infobit, params)
                 else:
                     random_infobit_id = InfobitId(int(self.rng.choice(candidate_infobits)))
@@ -149,7 +149,6 @@ class Model:
             for friend_id in neighbor_ids:
                 self.try_integrate_infobit(self.guys[GuyId(friend_id)], self.infobits[posted_info_id], params)
 
-
     def birth_death(self, params: Params):
         """
         Replace a guy with a new guy with the same ID as a way to delete the old guy and reinsert a new guy.
@@ -161,7 +160,6 @@ class Model:
                 # Remove all infolinks from the graph (they were from the old guy)
                 for infolink in self.infolink_neighbors(guy):
                     self.H.remove(guy.id, infolink)
-
 
     def refriend(self, params: Params):
         """Replace a friendship with a new friendship with a random friend of a friend.
