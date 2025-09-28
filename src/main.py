@@ -4,10 +4,12 @@ import networkx as nx
 import cProfile
 import numpy as np
 from dataclasses import dataclass, field
-from utils import FastGeo
+from utils import FastGeo, FastStorage
 import time
 import pstats
 import itertools
+import pathlib
+import zstandard as zstd
 
 
 @dataclass
@@ -18,6 +20,7 @@ class Simulation:
     rng: np.random.Generator
     params: Params
     geo: FastGeo
+    storage: FastStorage
     infobits: dict[InfobitId, Infobit] = field(default_factory=dict)
 
     @staticmethod
@@ -69,7 +72,9 @@ class Simulation:
         H = BiAdj()
         geo = FastGeo(params.max_pxcor, params.acceptance_latitude, params.acceptance_sharpness)
 
-        return Simulation(guys=guys, G=G, H=H, rng=rng, params=params, geo=geo)
+        storage = FastStorage(params)
+
+        return Simulation(guys=guys, G=G, H=H, rng=rng, params=params, geo=geo, storage=storage)
 
     def new_infobits(self, params: Params):
         # Store current positions as old positions
@@ -201,7 +206,6 @@ class Simulation:
                     G.remove_edge(g1, g2)
                     neigh[g1].discard(g2); neigh[g2].discard(g1)
 
-
     def update_infobits(self):
         indices_to_remove = []
         for infobit_id in self.infobits:
@@ -215,8 +219,14 @@ class Simulation:
         for infobit_id in indices_to_remove:
             self.infobits.pop(infobit_id)
 
+    def visualize(self):
+        """Called this because it is called this in the NetLogo model, for us it's just updating the fluctuation and storing the results"""
+        for guy in self.guys.values():
+            guy.update_fluctuation(self.params.max_pxcor, self.params.max_pxcor)
+
 
     def run(self):
+        self.storage.setup_writers(self.guys, self.params.numticks, self.params.run_dir)
         for tick in range(self.params.numticks):
             start_time = time.time()
             self.new_infobits(self.params)
@@ -228,12 +238,12 @@ class Simulation:
                 self.refriend(self.params)
             self.update_infobits()
             print(f"Time taken for tick {tick}: {time.time() - start_time} seconds")
-            # visualize(self.params)
-            # if tick % self.params.plot_update_every == 0:
-            #     create_infosharer_network(self.params)
+            self.visualize()
+            self.storage.write_tick(tick, self.guys)
+        self.storage.finalize(self.infobits)
 
 def main():
-    stats_name = "optim-2-select-distant-infobits"
+    stats_name = "with-storage"
     profiler = cProfile.Profile()
     profiler.enable()
     params = Params()

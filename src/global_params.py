@@ -33,5 +33,9 @@ class Params:
 
     # world geometry (NetLogo uses patch coords; we emulate)
     max_pxcor: float = 16.0               # half-width/height of world (so coords ∈ [-max_pxcor, max_pxcor])
+    quantize: bool = True
+    quantization_scale: float = 65535.0
 
     seed: int = 42
+
+    run_dir: str = "data"

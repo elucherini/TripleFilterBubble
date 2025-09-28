@@ -3,6 +3,7 @@ from typing import NewType
 import numpy as np
 from global_params import Params
 from collections import defaultdict
+import math
 
 GuyId = NewType("GuyId", int)
 InfobitId = NewType("InfobitId", int)
@@ -26,6 +27,28 @@ class Guy:
         group = int(rng.integers(0, params.numgroups - 1))
         position = rng.uniform(-params.max_pxcor, params.max_pxcor, 2)
         return Guy(id=GuyId(guy_id), group=group, position=position)
+    
+    def update_fluctuation(self, max_pxcor: float, max_pycor: float):
+        """
+        fluctuation = distance_moved / (max_pxcor + 0.5) with torus wrapping
+
+        max_pxcor, max_pycor: world size
+        """
+        half_x = float(max_pxcor) + 0.5
+        p = self.position
+        q = self.old_position
+
+        half_y = (float(max_pycor) + 0.5)
+        dx = float(p[0] - q[0])
+        dy = float(p[1] - q[1])
+        span_x = 2 * half_x
+        span_y = 2 * half_y
+        dx = ((dx + half_x) % span_x) - half_x
+        dy = ((dy + half_y) % span_y) - half_y
+        dist = math.hypot(dx, dy)
+
+        self.fluctuation = dist / half_x
+        self.old_position = p.copy()
 
 
 @dataclass
