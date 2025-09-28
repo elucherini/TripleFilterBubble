@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from utils import FastGeo
 import time
 import pstats
+import itertools
 
 
 @dataclass
@@ -118,7 +119,7 @@ class Simulation:
         the infobit's neighbors' positions. If the infobit is not integrated or it is already
         integrated, it does nothing.
         """
-        linked = self.H.g2i.get(guy.id, set())
+        linked = self.H.g2i[guy.id]
         if infobit.id in linked:
             return
 
@@ -147,10 +148,11 @@ class Simulation:
             infos = self.infolink_neighbors(guy)
             if not infos:
                 continue
-            posted_info_id = InfobitId(self.rng.choice(list(infos)))
-            neighbor_ids = list(self.G.neighbors(guy.id))
-            for friend_id in neighbor_ids:
-                self.try_integrate_infobit(self.guys[GuyId(friend_id)], self.infobits[posted_info_id], params)
+            k = int(self.rng.integers(len(infos)))
+            posted_info_id = next(itertools.islice(infos, k, None))
+            info = self.infobits[posted_info_id]
+            for friend_id in self.G.adj[guy.id].keys():
+                self.try_integrate_infobit(self.guys[GuyId(friend_id)], info, params)
 
     def birth_death(self, params: Params):
         for gid, guy in self.guys.items():
@@ -165,42 +167,39 @@ class Simulation:
                 self.guys[gid] = new_guy
 
     def refriend(self, params: Params):
-        if params.refriend_probability <= 0:
-            return
-
         G = self.G
-        edges = list(G.edges())  # avoid live view mutation cost
-
-        # cache neighbors as sets (once per tick)
+        edges = list(G.edges())
         neigh = {n: set(G.neighbors(n)) for n in G.nodes()}
-
         for (g1, g2) in edges:
             a = self.guys[GuyId(g1)].position
             b = self.guys[GuyId(g2)].position
             d2 = self.geo.dist2(a, b)
             dislike = 1.0 - self.geo.integration_prob_from_d2(d2)
+            if self.rng.random() >= params.refriend_probability * dislike:
+                continue
 
-            if self.rng.random() < params.refriend_probability * dislike:
-                me = int(self.rng.choice([g1, g2]))
-                # friends-of-friends not including self or current friends
-                fof = set().union(*(neigh[n] for n in neigh[me])) - neigh[me] - {me}
+            me = int(self.rng.choice([g1, g2]))
+            fof = set()
+            for n in neigh[me]:
+                fof.update(neigh[n])
+            fof.difference_update(neigh[me])
+            fof.discard(me)
 
-                if fof:
-                    new_friend = int(self.rng.choice(list(fof)))
-                else:
-                    # fallback: any non-friend
-                    candidates = [x for x in G.nodes() if x != me and x not in neigh[me]]
-                    new_friend = int(self.rng.choice(candidates)) if candidates else None
+            if fof:
+                new_friend = int(self.rng.integers(0, len(fof)))
+                new_friend = list(fof)[new_friend]  # avoid full Python RNG on list
+            else:
+                # fallback
+                cand = [x for x in G.nodes() if x != me and x not in neigh[me]]
+                new_friend = int(self.rng.choice(cand)) if cand else None
 
-                if new_friend is not None:
+            if new_friend is not None:
+                if not G.has_edge(me, new_friend):
                     G.add_edge(me, new_friend)
-                    # keep caches coherent (cheap set updates)
-                    neigh[me].add(new_friend)
-                    neigh[new_friend].add(me)
-                    if G.has_edge(g1, g2):
-                        G.remove_edge(g1, g2)
-                        neigh[g1].discard(g2)
-                        neigh[g2].discard(g1)
+                    neigh[me].add(new_friend); neigh[new_friend].add(me)
+                if G.has_edge(g1, g2):
+                    G.remove_edge(g1, g2)
+                    neigh[g1].discard(g2); neigh[g2].discard(g1)
 
 
     def update_infobits(self):
@@ -234,15 +233,16 @@ class Simulation:
             #     create_infosharer_network(self.params)
 
 def main():
+    stats_name = "optim-2-select-distant-infobits"
     profiler = cProfile.Profile()
     profiler.enable()
     params = Params()
     model = Simulation.from_params(params)
     model.run()
     profiler.disable()
-    profiler.dump_stats("integrate_infobits_optimized.prof")
+    profiler.dump_stats(f"{stats_name}.prof")
 
-    pstats.Stats("integrate_infobits_optimized.prof").sort_stats('tottime').print_stats(30)
+    pstats.Stats(f"{stats_name}.prof").sort_stats('tottime').print_stats(30)
 
 
 
