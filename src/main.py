@@ -4,7 +4,7 @@ import networkx as nx
 import cProfile
 import numpy as np
 from dataclasses import dataclass, field
-from utils import pairwise_distances, integration_probability
+from utils import FastGeo
 import itertools
 import time
 
@@ -16,6 +16,7 @@ class Simulation:
     H: BiAdj
     rng: np.random.Generator
     params: Params
+    geo: FastGeo
     infobits: dict[InfobitId, Infobit] = field(default_factory=dict)
 
     @staticmethod
@@ -65,8 +66,9 @@ class Simulation:
 
         # Create empty network of infolinks (connecting guys and infobits)
         H = BiAdj()
+        geo = FastGeo(params.max_pxcor, params.acceptance_latitude, params.acceptance_sharpness)
 
-        return Simulation(guys=guys, G=G, H=H, rng=rng, params=params)
+        return Simulation(guys=guys, G=G, H=H, rng=rng, params=params, geo=geo)
 
     def new_infobits(self, params: Params):
         # Store current positions as old positions
@@ -94,7 +96,7 @@ class Simulation:
                 for infobit_id in self.infobits:
                     if infobit_id in linked_infobits:
                         continue
-                    distance = float(pairwise_distances(guy.position, self.infobits[infobit_id].position)) / (params.max_pxcor + 0.5)
+                    distance = self.geo.dist2(guy.position, self.infobits[infobit_id].position)
                     if (is_close and distance < params.acceptance_latitude) or ((not is_close) and distance >= params.acceptance_latitude):
                         candidate_infobits.append(infobit_id)
                 if not candidate_infobits or len(candidate_infobits) < len(self.guys):
@@ -118,8 +120,8 @@ class Simulation:
         """
         guy_position = guy.position
         # For now, distance will be a float, but may change as we vectorize more
-        distance = float(pairwise_distances(guy_position, infobit.position)) / (params.max_pxcor + 0.5)
-        integration_prob = integration_probability(distance, params.acceptance_latitude, params.acceptance_sharpness)
+        d2 = self.geo.dist2(guy_position, infobit.position)
+        integration_prob = self.geo.integration_prob_from_d2(d2)
         if self.rng.random() < integration_prob:
             # Integrate infobit in H graph passed down from Model
             # memory cap: if count my-infolinks >= memory, drop one infolink
@@ -161,33 +163,43 @@ class Simulation:
                     self.H.remove(guy.id, infolink)
 
     def refriend(self, params: Params):
-        """Replace a friendship with a new friendship with a random friend of a friend.
-        """
-        for (guy1_id, guy2_id) in self.G.edges():
-            guy1 = self.guys[GuyId(guy1_id)]
-            guy2 = self.guys[GuyId(guy2_id)]
-            distance = float(pairwise_distances(guy1.position, guy2.position)) / (params.max_pxcor + 0.5)
-            dislike = 1.0 - integration_probability(distance, params.acceptance_latitude, params.acceptance_sharpness)
+        if params.refriend_probability <= 0:
+            return
+
+        G = self.G
+        edges = list(G.edges())  # avoid live view mutation cost
+
+        # cache neighbors as sets (once per tick)
+        neigh = {n: set(G.neighbors(n)) for n in G.nodes()}
+
+        for (g1, g2) in edges:
+            a = self.guys[GuyId(g1)].position
+            b = self.guys[GuyId(g2)].position
+            d2 = self.geo.dist2(a, b)
+            dislike = 1.0 - self.geo.integration_prob_from_d2(d2)
+
             if self.rng.random() < params.refriend_probability * dislike:
-                # Choose one of the two guys
-                me = GuyId(int(self.rng.choice([guy1_id, guy2_id])))
-                # Choose a friend of friend to be friends with
-                fof = set(itertools.chain.from_iterable(self.G.neighbors(n) for n in self.G.neighbors(me)))
-                fof.discard(me)
-                # Only choose fofs that are not already friends
-                candidate_friends = [x for x in fof if not self.G.has_edge(me, x)]
-                if not candidate_friends:
-                    # If no candidate friends in the fof, choose a random guy to befriend
-                    new_candidates = [g for g in self.guys if g != me and not self.G.has_edge(me, g)]
-                    if not new_candidates:
-                        new_friend = None
-                    else:
-                        new_friend = int(self.rng.choice(new_candidates))
+                me = int(self.rng.choice([g1, g2]))
+                # friends-of-friends not including self or current friends
+                fof = set().union(*(neigh[n] for n in neigh[me])) - neigh[me] - {me}
+
+                if fof:
+                    new_friend = int(self.rng.choice(list(fof)))
                 else:
-                    new_friend = int(self.rng.choice(candidate_friends))
+                    # fallback: any non-friend
+                    candidates = [x for x in G.nodes() if x != me and x not in neigh[me]]
+                    new_friend = int(self.rng.choice(candidates)) if candidates else None
+
                 if new_friend is not None:
-                    self.G.add_edge(me, new_friend)
-                    self.G.remove_edge(guy1_id, guy2_id)
+                    G.add_edge(me, new_friend)
+                    # keep caches coherent (cheap set updates)
+                    neigh[me].add(new_friend)
+                    neigh[new_friend].add(me)
+                    if G.has_edge(g1, g2):
+                        G.remove_edge(g1, g2)
+                        neigh[g1].discard(g2)
+                        neigh[g2].discard(g1)
+
 
     def update_infobits(self):
         indices_to_remove = []
@@ -226,7 +238,7 @@ def main():
     model = Simulation.from_params(params)
     model.run()
     profiler.disable()
-    profiler.dump_stats("naive_profile.prof")
+    profiler.dump_stats("optimized.prof")
 
 
 
