@@ -60,6 +60,17 @@ class FastStorage:
         self.inf_iid2idx: dict[int, int] = {}
         self.inf_ids_list: list[int] = []
 
+        self._gg_static_row: np.ndarray | None = None
+
+    def precompute_guy_graph_row(self, G: nx.Graph):
+        buf = np.zeros((self.gg_bytes_per_tick,), np.uint8)
+        for u, v in G.edges():
+            iu, iv = self.gid2idx[int(u)], self.gid2idx[int(v)]
+            if iu > iv: iu, iv = iv, iu
+            k = self.gg_pair_index[iu, iv]
+            buf[k >> 3] |= (1 << (k & 7))
+        self._gg_static_row = buf
+
     def compress_fast(self, src: Path):
         dst = src.with_suffix(src.suffix + ".zst")
         cctx = zstd.ZstdCompressor(level=3, threads=0)
@@ -135,6 +146,10 @@ class FastStorage:
         """
         if self.gg_mm is None or self.gg_pair_index is None:
             raise ValueError("graph buffers not set up")
+        if self._gg_static_row is not None:
+            self.gg_mm[t][:] = self._gg_static_row
+            return
+        
         buf = self.gg_mm[t]
         buf[:] = 0  # fast zero
 

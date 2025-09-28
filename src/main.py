@@ -227,6 +227,8 @@ class Simulation:
 
     def run(self):
         self.storage.setup_writers(self.guys, self.params.numticks)
+        if self.params.refriend_probability == 0:
+            self.storage.precompute_guy_graph_row(self.G)
         self.storage.attach_biadj_callbacks(self.H)
         for tick in range(self.params.numticks):
             start_time = time.time()
@@ -247,7 +249,7 @@ class Simulation:
         self.storage.finalize(self.infobits)
 
 def main():
-    stats_name = "with-complete-storage"
+    stats_name = "confirm"
     profiler = cProfile.Profile()
     profiler.enable()
     params = Params()
