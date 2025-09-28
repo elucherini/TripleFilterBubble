@@ -5,8 +5,8 @@ import cProfile
 import numpy as np
 from dataclasses import dataclass, field
 from utils import FastGeo
-import itertools
 import time
+import pstats
 
 
 @dataclass
@@ -118,27 +118,29 @@ class Simulation:
         the infobit's neighbors' positions. If the infobit is not integrated or it is already
         integrated, it does nothing.
         """
-        guy_position = guy.position
-        # For now, distance will be a float, but may change as we vectorize more
-        d2 = self.geo.dist2(guy_position, infobit.position)
-        integration_prob = self.geo.integration_prob_from_d2(d2)
-        if self.rng.random() < integration_prob:
-            # Integrate infobit in H graph passed down from Model
-            # memory cap: if count my-infolinks >= memory, drop one infolink
-            infolink_neighbors = self.infolink_neighbors(guy)
-            if len(infolink_neighbors) >= params.memory:
-                # drop a random infolink
-                drop_iid = InfobitId(self.rng.choice(list(infolink_neighbors)))
-                self.H.remove(guy.id, drop_iid)
-            # add infolink
-            self.H.add(guy.id, infobit.id)
-            # set guy position to mean of infolink neighbors positions
-            infos = self.infolink_neighbors(guy)
-            if infos:
-                xs = [self.infobits[i].position[0] for i in infos]
-                ys = [self.infobits[i].position[1] for i in infos]
-                guy.position[0] = float(np.mean(xs))
-                guy.position[1] = float(np.mean(ys))
+        linked = self.H.g2i.get(guy.id, set())
+        if infobit.id in linked:
+            return
+
+        d2 = self.geo.dist2(guy.position, infobit.position)
+        if self.rng.random() >= self.geo.integration_prob_from_d2(d2):
+            return
+
+        # memory cap: drop one
+        if len(linked) >= params.memory:
+            drop_iid = InfobitId(self.rng.choice(tuple(linked)))
+            if self.H.remove_edge(guy.id, drop_iid):
+                # decrement sums
+                p = self.infobits[drop_iid].position
+                guy.inf_sum -= p
+                guy.inf_count -= 1
+
+        # add new link and update sums
+        if self.H.add_edge(guy.id, infobit.id):
+            guy.inf_sum += infobit.position
+            guy.inf_count += 1
+            # new mean without allocations / reductions
+            guy.position[:] = (guy.inf_sum / guy.inf_count)
 
     def post_infobits(self, params: Params):
         for guy in self.guys.values():
@@ -151,16 +153,16 @@ class Simulation:
                 self.try_integrate_infobit(self.guys[GuyId(friend_id)], self.infobits[posted_info_id], params)
 
     def birth_death(self, params: Params):
-        """
-        Replace a guy with a new guy with the same ID as a way to delete the old guy and reinsert a new guy.
-        """
         for gid, guy in self.guys.items():
             if self.rng.random() < params.birth_death_probability:
+                # drop all infolinks + fix sums
+                for iid in tuple(self.H.g2i.get(gid, ())):
+                    if self.H.remove_edge(gid, iid):
+                        p = self.infobits[iid].position
+                        guy.inf_sum -= p
+                        guy.inf_count -= 1
                 new_guy = Guy.random_setup(gid, params, self.rng)
                 self.guys[gid] = new_guy
-                # Remove all infolinks from the graph (they were from the old guy)
-                for infolink in self.infolink_neighbors(guy):
-                    self.H.remove(guy.id, infolink)
 
     def refriend(self, params: Params):
         if params.refriend_probability <= 0:
@@ -238,7 +240,9 @@ def main():
     model = Simulation.from_params(params)
     model.run()
     profiler.disable()
-    profiler.dump_stats("optimized.prof")
+    profiler.dump_stats("integrate_infobits_optimized.prof")
+
+    pstats.Stats("integrate_infobits_optimized.prof").sort_stats('tottime').print_stats(30)
 
 
 

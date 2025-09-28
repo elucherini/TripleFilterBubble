@@ -15,6 +15,8 @@ class Guy:
     group: int
     fluctuation: float = 0.0
     old_position: np.ndarray = field(init=False)
+    inf_sum: np.ndarray = field(default_factory=lambda: np.zeros(2, dtype=float))
+    inf_count: int = 0
 
     def __post_init__(self):
         self.old_position = self.position.copy()
@@ -75,3 +77,22 @@ class BiAdj:
         """Remove all infobits connected to a guy."""
         for iid in self.g2i.get(gid, set()):
             self.remove(gid, iid)
+
+    def add_edge(self, gid: GuyId, iid: InfobitId) -> bool:
+        s = self.g2i[gid]
+        if iid in s:
+            return False
+        s.add(iid)
+        self.i2g[iid].add(gid)
+        return True
+
+    def remove_edge(self, gid: GuyId, iid: InfobitId) -> bool:
+        if iid not in self.g2i.get(gid, ()):
+            return False
+        self.g2i[gid].remove(iid)
+        self.i2g[iid].remove(gid)
+        if not self.g2i[gid]:
+            del self.g2i[gid]
+        if not self.i2g[iid]:
+            del self.i2g[iid]
+        return True
