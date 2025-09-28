@@ -102,7 +102,7 @@ class Simulation:
                 for infobit_id in self.infobits:
                     if infobit_id in linked_infobits:
                         continue
-                    distance = self.geo.dist2(guy.position, self.infobits[infobit_id].position)
+                    distance = self.geo.norm_dist(guy.position, self.infobits[infobit_id].position)
                     if (is_close and distance < params.acceptance_latitude) or ((not is_close) and distance >= params.acceptance_latitude):
                         candidate_infobits.append(infobit_id)
                 if not candidate_infobits or len(candidate_infobits) < len(self.guys):
@@ -249,7 +249,7 @@ class Simulation:
         self.storage.finalize(self.infobits)
 
 def main():
-    stats_name = "confirm"
+    stats_name = "slots"
     profiler = cProfile.Profile()
     profiler.enable()
     params = Params()

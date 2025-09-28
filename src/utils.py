@@ -1,12 +1,12 @@
 import zstandard as zstd
 from global_params import Params
-import pathlib
 import numpy as np
 from pathlib import Path
 from models import Guy, GuyId, Infobit, InfobitId, BiAdj
 from typing import Iterable
 import networkx as nx
 from typing import BinaryIO
+import math
 
 
 class FastGeo:
@@ -27,6 +27,12 @@ class FastGeo:
         # uses (sqrt(d2)*inv_norm)^k = (d2^(k/2)) * inv_norm^k
         x = (d2 ** self.k_half) * self.inv_norm_pow_k
         return self.lam_pow_k / (x + self.lam_pow_k)
+    
+    def norm_dist(self, a, b) -> float:
+        """Fast path: compute normalized distance in one C-optimized call."""
+        ax, ay = a
+        bx, by = b
+        return math.hypot(ax - bx, ay - by) * self.inv_norm
     
 
 class FastStorage:

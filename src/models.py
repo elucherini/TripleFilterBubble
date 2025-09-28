@@ -9,7 +9,7 @@ GuyId = NewType("GuyId", int)
 InfobitId = NewType("InfobitId", int)
 
 
-@dataclass
+@dataclass(slots=True)
 class Guy:
     id: GuyId
     position: np.ndarray
@@ -24,7 +24,7 @@ class Guy:
 
     @staticmethod
     def random_setup(guy_id: int, params: Params, rng: np.random.Generator) -> "Guy":
-        group = int(rng.integers(0, params.numgroups - 1))
+        group = int(rng.integers(0, params.numgroups))
         position = rng.uniform(-params.max_pxcor, params.max_pxcor, 2)
         return Guy(id=GuyId(guy_id), group=group, position=position)
     
@@ -51,7 +51,7 @@ class Guy:
         self.old_position = p.copy()
 
 
-@dataclass
+@dataclass(slots=True)
 class Infobit:
     id: InfobitId
     position: np.ndarray
@@ -67,7 +67,7 @@ class Infobit:
         return Infobit(id=InfobitId(infobit_id), position=position)
     
 
-@dataclass
+@dataclass(slots=True)
 class BiAdj:
     g2i: dict[GuyId, set[InfobitId]] = field(default_factory=lambda: defaultdict(set))
     i2g: dict[InfobitId, set[GuyId]] = field(default_factory=lambda: defaultdict(set))
