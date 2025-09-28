@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import NewType
+from typing import NewType, Callable
 import numpy as np
 from global_params import Params
 from collections import defaultdict
@@ -71,16 +71,22 @@ class Infobit:
 class BiAdj:
     g2i: dict[GuyId, set[InfobitId]] = field(default_factory=lambda: defaultdict(set))
     i2g: dict[InfobitId, set[GuyId]] = field(default_factory=lambda: defaultdict(set))
+    # Optional callbacks for logging changes (wired by storage):
+    _on_add: Callable[[GuyId, InfobitId], None] | None = None
+    _on_remove: Callable[[GuyId, InfobitId], None] | None = None
 
     def add(self, gid: GuyId, iid: InfobitId):
-        """Bidirectional edge addition."""
         self.g2i[gid].add(iid)
         self.i2g[iid].add(gid)
+        if self._on_add:
+            self._on_add(gid, iid)
 
     def remove(self, gid: GuyId, iid: InfobitId):
         """Bidirectional edge removal."""
         if iid in self.g2i[gid]:
             self.g2i[gid].remove(iid)
+            if self._on_remove:
+                self._on_remove(gid, iid)
         if gid in self.i2g[iid]:
             self.i2g[iid].remove(gid)
         if not self.g2i[gid]:
@@ -97,8 +103,8 @@ class BiAdj:
         return len(self.i2g.get(iid, set()))
 
     def drop_all_for_guy(self, gid: GuyId):
-        """Remove all infobits connected to a guy."""
-        for iid in self.g2i.get(gid, set()):
+        # use list() to avoid mutating while iterating
+        for iid in list(self.g2i.get(gid, ())):
             self.remove(gid, iid)
 
     def add_edge(self, gid: GuyId, iid: InfobitId) -> bool:
@@ -107,6 +113,8 @@ class BiAdj:
             return False
         s.add(iid)
         self.i2g[iid].add(gid)
+        if self._on_add:
+            self._on_add(gid, iid)
         return True
 
     def remove_edge(self, gid: GuyId, iid: InfobitId) -> bool:
@@ -118,4 +126,6 @@ class BiAdj:
             del self.g2i[gid]
         if not self.i2g[iid]:
             del self.i2g[iid]
+        if self._on_remove:
+            self._on_remove(gid, iid)
         return True

@@ -226,9 +226,11 @@ class Simulation:
 
 
     def run(self):
-        self.storage.setup_writers(self.guys, self.params.numticks, self.params.run_dir)
+        self.storage.setup_writers(self.guys, self.params.numticks)
+        self.storage.attach_biadj_callbacks(self.H)
         for tick in range(self.params.numticks):
             start_time = time.time()
+            self.storage.begin_tick(tick)
             self.new_infobits(self.params)
             if self.params.posting:
                 self.post_infobits(self.params)
@@ -240,10 +242,12 @@ class Simulation:
             print(f"Time taken for tick {tick}: {time.time() - start_time} seconds")
             self.visualize()
             self.storage.write_tick(tick, self.guys)
+            self.storage.write_guy_graph(tick, self.G)
+            self.storage.end_tick(tick)
         self.storage.finalize(self.infobits)
 
 def main():
-    stats_name = "with-storage"
+    stats_name = "with-complete-storage"
     profiler = cProfile.Profile()
     profiler.enable()
     params = Params()
