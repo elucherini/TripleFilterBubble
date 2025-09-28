@@ -10,7 +10,7 @@ import time
 
 
 @dataclass
-class Model:
+class Simulation:
     guys: dict[GuyId, Guy]
     G: nx.Graph
     H: BiAdj
@@ -20,8 +20,7 @@ class Model:
 
     @staticmethod
     def make_group_network(guy: Guy, guys: dict[GuyId, Guy], G: nx.Graph, params: Params, rng: np.random.Generator):
-        n = params.numguys
-        p = params.numfriends / max(1, n)  # baseline
+        p = params.numfriends / max(1, params.numguys)  # baseline
 
         # current GID
         gid = guy.id
@@ -57,17 +56,17 @@ class Model:
     def from_params(params: Params):
         rng = np.random.default_rng(params.seed)
         # Create guys
-        guys = Model.create_guys(params, rng)
+        guys = Simulation.create_guys(params, rng)
 
         # Create group network for each guy
         G = nx.Graph()
         for curr_guy in guys.values():
-            Model.make_group_network(curr_guy, guys, G, params, rng)
+            Simulation.make_group_network(curr_guy, guys, G, params, rng)
 
         # Create empty network of infolinks (connecting guys and infobits)
         H = BiAdj()
 
-        return Model(guys=guys, G=G, H=H, rng=rng, params=params)
+        return Simulation(guys=guys, G=G, H=H, rng=rng, params=params)
 
     def new_infobits(self, params: Params):
         # Store current positions as old positions
@@ -221,10 +220,10 @@ class Model:
             #     create_infosharer_network(self.params)
 
 def main():
-    params = Params()
-    model = Model.from_params(params)
     profiler = cProfile.Profile()
     profiler.enable()
+    params = Params()
+    model = Simulation.from_params(params)
     model.run()
     profiler.disable()
     profiler.dump_stats("naive_profile.prof")
