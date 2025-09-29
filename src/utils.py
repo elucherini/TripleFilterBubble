@@ -268,3 +268,28 @@ class FastStorage:
     def attach_biadj_callbacks(self, bi: BiAdj):
         bi._on_add = self.bi_on_add
         bi._on_remove = self.bi_on_remove
+
+
+class SpatialGrid:
+    def __init__(self, half_world_size: float, cell: float):
+        self.cell = cell
+        self.half = half_world_size
+        self.inv = 1.0 / cell
+        self._grid: dict[tuple[int, int], list[InfobitId]] = {}  # (ix,iy) -> list[InfobitId]
+
+    def _key(self, p):
+        ix = int((p[0] + self.half) * self.cell)
+        iy = int((p[1] + self.half) * self.cell)
+        return (ix, iy)
+
+    def add(self, iid: InfobitId, p: np.ndarray):
+        self._grid.setdefault(self._key(p), []).append(iid)
+
+    def neighbors(self, p: np.ndarray):
+        ix, iy = self._key(p)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                lst = self._grid.get((ix + dx, iy + dy), ())
+                if lst:
+                    for iid in lst:
+                        yield iid

@@ -4,7 +4,7 @@ import networkx as nx
 import cProfile
 import numpy as np
 from dataclasses import dataclass, field
-from utils import FastGeo, FastStorage
+from utils import FastGeo, FastStorage, SpatialGrid
 import time
 import pstats
 import itertools
@@ -22,6 +22,7 @@ class Simulation:
     geo: FastGeo
     storage: FastStorage
     infobits: dict[InfobitId, Infobit] = field(default_factory=dict)
+    _grid: SpatialGrid | None = None
 
     @staticmethod
     def make_group_network(guy: Guy, guys: dict[GuyId, Guy], G: nx.Graph, params: Params, rng: np.random.Generator):
@@ -74,7 +75,41 @@ class Simulation:
 
         storage = FastStorage(params)
 
-        return Simulation(guys=guys, G=G, H=H, rng=rng, params=params, geo=geo, storage=storage)
+        if params.new_info_mode in ("select close infobits", "select distant infobits"):
+            grid = SpatialGrid(params.max_pxcor, params.acceptance_latitude)
+        else:
+            grid = None
+
+        return Simulation(guys=guys, G=G, H=H, rng=rng, params=params, geo=geo, storage=storage, _grid=grid)
+    
+    def _pick_distant_infobit_fast(self, guy: Guy, attempts: int = 32):
+        """
+        Pick a distant infobit for a guy with a random draw. 
+        Tries as many times as specified by attempts, and returns None if no distant infobit is found.
+        On average, this is still more efficient than scanning through all infobits.
+        """
+        if not self.infobits: return None
+        linked = self.H.g2i.get(guy.id, ())
+        keys = tuple(self.infobits.keys())
+        for _ in range(attempts):
+            iid = InfobitId(int(self.rng.choice(keys)))
+            if iid in linked: continue
+            if self.geo.norm_dist(guy.position, self.infobits[iid].position) >= self.params.acceptance_latitude:
+                return self.infobits[iid]
+        return None  # create new instead
+    
+    def _pick_close_infobit_from_grid(self, guy: Guy):
+        if self._grid is None:
+            return None
+        linked = self.H.g2i.get(guy.id, ())
+        # Scan only the 3x3 grid around the guy
+        for iid in self._grid.neighbors(guy.position):
+            if iid in linked:
+                continue
+            infobit = self.infobits[iid]
+            if self.geo.norm_dist(guy.position, infobit.position) < self.params.acceptance_latitude:
+                return infobit
+        return None
 
     def new_infobits(self, params: Params):
         # Store current positions as old positions
@@ -84,6 +119,8 @@ class Simulation:
             for i in range(params.numcentral):
                 new_central_infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
                 self.infobits[new_central_infobit.id] = new_central_infobit
+                if self._grid is not None:
+                    self._grid.add(new_central_infobit.id, new_central_infobit.position)
                 for guy in self.guys.values():
                     self.try_integrate_infobit(guy, new_central_infobit, params)
         elif params.new_info_mode == "individual":
@@ -92,26 +129,29 @@ class Simulation:
             for guy in self.guys.values():
                 new_individual_infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
                 self.infobits[new_individual_infobit.id] = new_individual_infobit
+                if self._grid is not None:
+                    self._grid.add(new_individual_infobit.id, new_individual_infobit.position)
                 self.try_integrate_infobit(guy, new_individual_infobit, params)
         elif params.new_info_mode in ("select close infobits", "select distant infobits"):
             is_close = params.new_info_mode == "select close infobits"
             for guy in self.guys.values():
-                # Find all infobits that are not linked and fit closeness criteria
-                candidate_infobits = []
-                linked_infobits = self.infolink_neighbors(guy)
-                for infobit_id in self.infobits:
-                    if infobit_id in linked_infobits:
-                        continue
-                    distance = self.geo.norm_dist(guy.position, self.infobits[infobit_id].position)
-                    if (is_close and distance < params.acceptance_latitude) or ((not is_close) and distance >= params.acceptance_latitude):
-                        candidate_infobits.append(infobit_id)
-                if not candidate_infobits or len(candidate_infobits) < len(self.guys):
-                    new_infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
-                    self.infobits[new_infobit.id] = new_infobit
-                    self.try_integrate_infobit(guy, new_infobit, params)
+                if not is_close:
+                    infobit = self._pick_distant_infobit_fast(guy)
+                    if infobit is None:
+                        infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
+                        self.infobits[infobit.id] = infobit
+                        if self._grid is not None:
+                            self._grid.add(infobit.id, infobit.position)
+                    self.try_integrate_infobit(guy, infobit, params)
                 else:
-                    random_infobit_id = InfobitId(int(self.rng.choice(candidate_infobits)))
-                    self.try_integrate_infobit(guy, self.infobits[random_infobit_id], params)
+                    infobit = self._pick_close_infobit_from_grid(guy)
+                    if infobit is None:
+                        infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
+                        self.infobits[infobit.id] = infobit
+                        if self._grid is not None:
+                            self._grid.add(infobit.id, infobit.position)
+                    self.try_integrate_infobit(guy, infobit, params)
+
         else:
             raise ValueError(f"Not yet implemented new_info_mode: {params.new_info_mode}")
 
@@ -147,6 +187,13 @@ class Simulation:
             guy.inf_count += 1
             # new mean without allocations / reductions
             guy.position[:] = (guy.inf_sum / guy.inf_count)
+
+    def _accept_mask_from_d2(self, d2_array: np.ndarray) -> np.ndarray:
+        # p = lam^k / ( (sqrt(d2)*inv_norm)^k + lam^k )
+        # → use (d2^(k/2)) * inv_norm^k
+        x = np.power(d2_array, self.geo.k_half) * self.geo.inv_norm_pow_k
+        p = self.geo.lam_pow_k / (x + self.geo.lam_pow_k)
+        return self.rng.random(size=p.size) < p
 
     def post_infobits(self, params: Params):
         for guy in self.guys.values():
@@ -249,7 +296,7 @@ class Simulation:
         self.storage.finalize(self.infobits)
 
 def main():
-    stats_name = "slots"
+    stats_name = "grid"
     profiler = cProfile.Profile()
     profiler.enable()
     params = Params()
