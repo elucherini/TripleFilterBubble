@@ -295,18 +295,21 @@ class Simulation:
         title: str | None = None,
         color_by_group: bool = True,
         show_ids: bool = False,
-        save_path: str | None = None
+        save_path: str | None = None,
+        show_infolinks: bool = False
     ):
         """
         Plot current positions of all agents using the integrated plotter.
 
         Infobits are plotted if params.show_infobits is True.
+        Infolinks are plotted if show_infolinks is True.
 
         Args:
             title: Plot title (defaults to tick-based title if None)
             color_by_group: If True, color agents by their group membership
             show_ids: If True, annotate each agent with their ID
             save_path: If provided, save the plot to this path instead of showing
+            show_infolinks: If True, draw lines connecting guys to their infobits
 
         Raises:
             RuntimeError: If plotter is not enabled for this simulation
@@ -328,7 +331,9 @@ class Simulation:
             save_path=save_path,
             infobits=self.infobits if self.params.show_infobits else None,
             show_infobits=self.params.show_infobits,
-            size_by_popularity=self.params.infobit_size
+            size_by_popularity=self.params.infobit_size,
+            H=self.H if show_infolinks else None,
+            show_infolinks=show_infolinks
         )
 
 
@@ -358,7 +363,8 @@ class Simulation:
                     self.plot_current_positions(
                         title=f"Agent Positions at Tick {tick}",
                         color_by_group=True,
-                        save_path=f"positions_tick_{tick:03d}.png"
+                        save_path=f"positions_tick_{tick:03d}.png",
+                        show_infolinks=self.params.show_infolinks
                     )
 
             self.storage.write_tick(tick, self.guys)

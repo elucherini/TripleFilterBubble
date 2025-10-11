@@ -13,7 +13,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
 if TYPE_CHECKING:
-    from models import Guy, GuyId, Infobit, InfobitId
+    from models import Guy, GuyId, Infobit, InfobitId, BiAdj
     from global_params import Params
 
 
@@ -60,7 +60,9 @@ class PositionPlotter:
         save_path: str | None = None,
         infobits: dict["InfobitId", "Infobit"] | None = None,
         show_infobits: bool = False,
-        size_by_popularity: bool = False
+        size_by_popularity: bool = False,
+        H: "BiAdj | None" = None,
+        show_infolinks: bool = False
     ):
         """
         Plot current positions of all agents and optionally infobits.
@@ -74,6 +76,8 @@ class PositionPlotter:
             infobits: Optional dictionary mapping InfobitId to Infobit objects
             show_infobits: If True and infobits provided, plot infobits on the same axes
             size_by_popularity: If True, scale infobit markers by popularity
+            H: Optional BiAdj structure containing guy-infobit connections
+            show_infolinks: If True, draw lines connecting guys to their infobits
         """
         if self.fig is None or self.ax is None:
             self.setup_figure()
@@ -160,6 +164,24 @@ class PositionPlotter:
             if not color_by_group:
                 # Only add legend if we don't already have a colorbar
                 self.ax.legend(loc='upper right')
+
+        # Draw infolinks if requested
+        if show_infolinks and show_infobits and infobits and H:
+            # Draw lines between guys and their connected infobits
+            for guy_id, guy in guys.items():
+                connected_infobits = H.g2i.get(guy_id, set())
+                guy_pos = guy.position
+                for infobit_id in connected_infobits:
+                    if infobit_id in infobits:
+                        infobit_pos = infobits[infobit_id].position
+                        self.ax.plot(
+                            [guy_pos[0], infobit_pos[0]],
+                            [guy_pos[1], infobit_pos[1]],
+                            color='gray',
+                            alpha=0.15,
+                            linewidth=0.5,
+                            zorder=0
+                        )
 
         if save_path:
             self.fig.savefig(save_path, dpi=150, bbox_inches='tight')
