@@ -30,6 +30,7 @@ class Params:
     # numticks: int = 10_000
     numticks: int = 100
     plot_update_every: int = 20
+    plot_every_n_ticks: int = 0  # 0 disables plotting, >0 plots every n ticks
 
     # world geometry (NetLogo uses patch coords; we emulate)
     max_pxcor: float = 16.0               # half-width/height of world (so coords ∈ [-max_pxcor, max_pxcor])
