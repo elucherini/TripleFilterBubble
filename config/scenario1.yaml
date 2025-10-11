@@ -1,0 +1,56 @@
+show_people: true
+show_infobits: false
+infobit_size: false
+show_infolinks: true
+show_friend_links: false
+show_infosharer_links: false
+patch_color: "white"
+color_axis_max: 0.05
+
+# === Core Model Parameters ===
+
+memory: 20
+acceptance_latitude: 0.3
+acceptance_sharpness: 20.0
+
+# === Population & Network ===
+
+numguys: 500
+numfriends: 20
+network_type: "groups"
+numgroups: 4
+fraction_inter: 0.2
+dims: 2
+
+# === Network Dynamics ===
+
+birth_death_probability: 0.0
+refriend_probability: 0.0
+
+# === Information Dynamics ===
+
+numcentral: 1
+
+new_info_mode: "individual"
+
+posting: false
+
+# === Simulation Control ===
+
+numticks: 10_000
+
+plot_update_every: 1000
+
+plot_every_n_ticks: 1000
+
+# === Reproducibility ===
+
+seed: 42
+
+# === Output ===
+
+run_dir: "data/scenario1"
+
+# === Measurements ===
+
+measurement_ticks: [1000, 5000, 9000, 9999]
