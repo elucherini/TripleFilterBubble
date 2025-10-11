@@ -10,9 +10,11 @@ The codebase is a performance-optimized Python port of the original NetLogo simu
 
 ## Commands
 
+**Important:** This project uses `uv` for dependency management and running Python commands. All Python commands should be prefixed with `uv run`.
+
 ### Running the simulation
 ```bash
-python src/main.py
+uv run python src/main.py
 ```
 
 The simulation runs with parameters defined in `src/global_params.py` (default: 100 ticks, 500 guys, seed 42). Results are stored in compressed format in the `data/` directory.
@@ -20,18 +22,13 @@ The simulation runs with parameters defined in `src/global_params.py` (default: 
 ### Profiling
 The main script includes built-in cProfile support. Profile results are saved as `.prof` files (e.g., `posting.prof`). To view:
 ```bash
-python -m snakeviz posting.prof
+uv run python -m snakeviz posting.prof
 ```
 
 ### Dependencies
 The project uses `uv` for dependency management:
 ```bash
 uv sync
-```
-
-Or with pip:
-```bash
-pip install -r pyproject.toml
 ```
 
 ## Architecture
@@ -117,7 +114,7 @@ The storage callbacks are attached to `BiAdj` via `attach_biadj_callbacks` to lo
 - Before committing performance optimizations
 - When modifying guy movement, infobit creation, or network dynamics
 
-Run with: `pytest tests/test_golden_regression.py -m e2e`
+Run with: `uv run pytest tests/test_golden_regression.py -m e2e`
 
 **Important:** If this test fails, the Python implementation has diverged from NetLogo. Do not proceed with changes until parity is restored.
 
