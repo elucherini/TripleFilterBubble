@@ -148,7 +148,7 @@ class PositionPlotter:
             self.ax.scatter(
                 infobit_positions[:, 0],
                 infobit_positions[:, 1],
-                marker='x',
+                marker='s',
                 c='gray',
                 alpha=0.5,
                 s=sizes,
