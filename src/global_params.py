@@ -25,7 +25,7 @@ class Params:
     birth_death_probability: float = 0.0
     refriend_probability: float = 0.0
     numcentral: int = 1
-    new_info_mode: str = "select distant infobits"        # "central" | "individual" | "select close infobits" | "select distant infobits"
+    new_info_mode: str = "central"        # "central" | "individual" | "select close infobits" | "select distant infobits"
     posting: bool = True
     # numticks: int = 10_000
     numticks: int = 100

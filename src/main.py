@@ -121,8 +121,13 @@ class Simulation:
                 self.infobits[new_central_infobit.id] = new_central_infobit
                 if self._grid is not None:
                     self._grid.add(new_central_infobit.id, new_central_infobit.position)
-                for guy in self.guys.values():
-                    self.try_integrate_infobit(guy, new_central_infobit, params)
+                GIDS = list(self.guys.keys())
+                P = np.vstack([self.guys[gid].position for gid in GIDS])           # (N,2)
+                d = P - new_central_infobit.position                                # (N,2)
+                d2 = (d * d).sum(axis=1)                                            # (N,)
+                mask = self._accept_mask_from_d2(d2)
+                for gid in np.asarray(GIDS, dtype=int)[mask]:
+                    self.try_integrate_infobit(self.guys[GuyId(gid)], new_central_infobit, params)
         elif params.new_info_mode == "individual":
             # The difference here is that each guy creates one infobit and tries to integrate it
             # as opposed to one infobit shared by all guys
@@ -203,7 +208,14 @@ class Simulation:
             k = int(self.rng.integers(len(infos)))
             posted_info_id = next(itertools.islice(infos, k, None))
             info = self.infobits[posted_info_id]
-            for friend_id in self.G.adj[guy.id].keys():
+            friends = list(self.G.adj[guy.id].keys())
+            if not friends:
+                continue
+            F = np.vstack([self.guys[GuyId(fid)].position for fid in friends])
+            diff = F - info.position
+            d2 = (diff * diff).sum(axis=1) 
+            mask = self._accept_mask_from_d2(d2)
+            for friend_id in np.asarray(friends, dtype=int)[mask]:
                 self.try_integrate_infobit(self.guys[GuyId(friend_id)], info, params)
 
     def birth_death(self, params: Params):
@@ -296,7 +308,7 @@ class Simulation:
         self.storage.finalize(self.infobits)
 
 def main():
-    stats_name = "grid"
+    stats_name = "posting"
     profiler = cProfile.Profile()
     profiler.enable()
     params = Params()
