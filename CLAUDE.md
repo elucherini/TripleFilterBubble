@@ -98,11 +98,33 @@ The storage callbacks are attached to `BiAdj` via `attach_biadj_callbacks` to lo
 - `refriend_probability > 0`: Agents rewire friendships away from distant opinions toward friends-of-friends
 - `birth_death_probability > 0`: Agents are randomly replaced with fresh agents
 
+## Testing
+
+### NetLogo regression test ([tests/test_golden_regression.py](tests/test_golden_regression.py))
+
+**Critical:** This test verifies that the Python implementation produces identical results to the original NetLogo model. It compares against reference data in [tests/fixtures/netlogo_reference.json](tests/fixtures/netlogo_reference.json).
+
+**Purpose:** Ensure behavioral parity between Python and NetLogo implementations. This test is the single source of truth for correctness.
+
+**What it validates:**
+- Total infobits created (cumulative counter matching NetLogo's `infobits-created`)
+- Final friendship network edges (exact edge list)
+- Total info-links between guys and infobits
+- Final guy positions (within floating point tolerance)
+
+**When to run:**
+- After any changes to core simulation logic
+- Before committing performance optimizations
+- When modifying guy movement, infobit creation, or network dynamics
+
+Run with: `pytest tests/test_golden_regression.py -m e2e`
+
+**Important:** If this test fails, the Python implementation has diverged from NetLogo. Do not proceed with changes until parity is restored.
+
 ## Development notes
 
 - The codebase prioritizes performance over abstraction. Many loops are vectorized or use NumPy operations directly.
 - Git history shows multiple optimization passes (see commits with "optim", "refriend_optimized", "slots", "grid" in `.prof` files).
-- The `tests/` directory is currently empty.
 - Profile files (`.prof`) in the root are working artifacts and should not be committed.
 - The `data/` directory contains simulation outputs and is gitignored.
 - When modifying core simulation logic, verify parity with NetLogo model behaviors (e.g., torus wrapping, friend-of-friend selection).
