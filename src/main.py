@@ -5,6 +5,7 @@ import cProfile
 import numpy as np
 from dataclasses import dataclass, field
 from utils import FastGeo, FastStorage, SpatialGrid
+from plotter import PositionPlotter
 import time
 import pstats
 import itertools
@@ -22,6 +23,7 @@ class Simulation:
     infobits: dict[InfobitId, Infobit] = field(default_factory=dict)
     _grid: SpatialGrid | None = None
     infobits_created: int = 0
+    plotter: PositionPlotter | None = None
 
     @staticmethod
     def make_group_network(guy: Guy, guys: dict[GuyId, Guy], G: nx.Graph, params: Params, rng: np.random.Generator):
@@ -58,7 +60,7 @@ class Simulation:
         return {GuyId(i): Guy.random_setup(i, params, rng) for i in range(params.numguys)}
 
     @staticmethod
-    def from_params(params: Params):
+    def from_params(params: Params, enable_plotting: bool = False):
         rng = np.random.default_rng(params.seed)
         # Create guys
         guys = Simulation.create_guys(params, rng)
@@ -79,7 +81,9 @@ class Simulation:
         else:
             grid = None
 
-        return Simulation(guys=guys, G=G, H=H, rng=rng, params=params, geo=geo, storage=storage, _grid=grid)
+        plotter = PositionPlotter(params) if enable_plotting else None
+
+        return Simulation(guys=guys, G=G, H=H, rng=rng, params=params, geo=geo, storage=storage, _grid=grid, plotter=plotter)
     
     def _pick_distant_infobit_fast(self, guy: Guy, attempts: int = 32):
         """
@@ -285,6 +289,42 @@ class Simulation:
         """Called this because it is called this in the NetLogo model, for us it's just updating the fluctuation and storing the results"""
         for guy in self.guys.values():
             guy.update_fluctuation(self.params.max_pxcor, self.params.max_pxcor)
+
+    def plot_current_positions(
+        self,
+        title: str | None = None,
+        color_by_group: bool = True,
+        show_ids: bool = False,
+        save_path: str | None = None
+    ):
+        """
+        Plot current positions of all agents using the integrated plotter.
+
+        Args:
+            title: Plot title (defaults to tick-based title if None)
+            color_by_group: If True, color agents by their group membership
+            show_ids: If True, annotate each agent with their ID
+            save_path: If provided, save the plot to this path instead of showing
+
+        Raises:
+            RuntimeError: If plotter is not enabled for this simulation
+        """
+        if self.plotter is None:
+            raise RuntimeError(
+                "Plotter is not enabled for this simulation. "
+                "Create simulation with enable_plotting=True"
+            )
+
+        if title is None:
+            title = "Agent Positions in Opinion Space"
+
+        self.plotter.plot_positions(
+            guys=self.guys,
+            title=title,
+            color_by_group=color_by_group,
+            show_ids=show_ids,
+            save_path=save_path
+        )
 
 
     def run(self):
