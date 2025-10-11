@@ -13,11 +13,54 @@ The codebase is a performance-optimized Python port of the original NetLogo simu
 **Important:** This project uses `uv` for dependency management and running Python commands. All Python commands should be prefixed with `uv run`.
 
 ### Running the simulation
+
+**Basic usage with default parameters:**
 ```bash
 uv run python src/main.py
 ```
 
-The simulation runs with parameters defined in `src/global_params.py` (default: 100 ticks, 500 guys, seed 42). Results are stored in compressed format in the `data/` directory.
+**Using a YAML configuration file:**
+```bash
+uv run python src/main.py --config config/my_experiment.yaml
+```
+
+**Other CLI options:**
+```bash
+# Disable profiling for faster execution
+uv run python src/main.py --no-profile
+
+# Specify custom profile output file
+uv run python src/main.py --profile-output my_profile.prof
+
+# View all options
+uv run python src/main.py --help
+```
+
+The simulation runs with parameters defined in `src/global_params.py` (default: 100 ticks, 500 guys, seed 42) or loaded from a YAML configuration file. Results are stored in compressed format in the `data/` directory.
+
+### Configuration
+
+Parameters can be specified in two ways:
+
+1. **Programmatically** (for scripts and tests):
+```python
+from global_params import Params
+params = Params(numguys=100, numfriends=10, seed=42)
+```
+
+2. **YAML configuration** (for experiments and CLI):
+```yaml
+# config/my_experiment.yaml
+numguys: 100
+numfriends: 10
+seed: 42
+new_info_mode: "central"
+measurement_ticks: [10, 50, 99]
+```
+
+See [config/example_params.yaml](config/example_params.yaml) for a complete documented example of all available parameters.
+
+**Parameter validation:** All parameters are validated using Pydantic. Invalid values (e.g., negative numbers, out-of-range probabilities, unknown modes) will raise clear validation errors at startup.
 
 ### Profiling
 The main script includes built-in cProfile support. Profile results are saved as `.prof` files (e.g., `posting.prof`). To view:
