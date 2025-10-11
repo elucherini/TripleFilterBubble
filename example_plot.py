@@ -22,16 +22,28 @@ def main():
     params = Params()
     params.numticks = 10  # Run just a few ticks for demo
     params.numguys = 100  # Fewer agents for clearer visualization
+    params.show_infobits = True  # Enable infobit visualization
+    params.infobit_size = True  # Size infobits by popularity
 
     print("Creating simulation with plotting enabled...")
     model = Simulation.from_params(params, enable_plotting=True)
 
-    # Plot initial positions
-    print("Plotting initial positions...")
+    # Plot initial positions (guys only)
+    print("Plotting initial positions (guys only)...")
+    params.show_infobits = False
     model.plot_current_positions(
-        title="Initial Agent Positions (Tick 0)",
+        title="Initial Agent Positions (Tick 0) - Guys Only",
         color_by_group=True,
-        save_path="initial_positions.png"
+        save_path="initial_positions_guys_only.png"
+    )
+
+    # Plot initial positions (with infobits)
+    print("Plotting initial positions (with infobits)...")
+    params.show_infobits = True
+    model.plot_current_positions(
+        title="Initial Agent Positions (Tick 0) - With Infobits",
+        color_by_group=True,
+        save_path="initial_positions_with_infobits.png"
     )
 
     # Run simulation for a few ticks
@@ -56,32 +68,45 @@ def main():
         model.storage.write_guy_graph(tick, model.G)
         model.storage.end_tick(tick)
 
-        # Plot every few ticks
+        # Plot every few ticks (with infobits)
         if tick % 5 == 0 or tick == params.numticks - 1:
-            print(f"Plotting positions at tick {tick}...")
+            print(f"Plotting positions at tick {tick} (with infobits)...")
+            params.show_infobits = True
             model.plot_current_positions(
-                title=f"Agent Positions at Tick {tick}",
+                title=f"Agent Positions at Tick {tick} - With Infobits",
                 color_by_group=True,
-                save_path=f"positions_tick_{tick:03d}.png"
+                save_path=f"positions_tick_{tick:03d}_with_infobits.png"
             )
 
     model.storage.finalize(model.infobits)
 
-    # Plot final positions
-    print("Plotting final positions...")
+    # Plot final positions (both with and without infobits for comparison)
+    print("Plotting final positions (guys only)...")
+    params.show_infobits = False
     model.plot_current_positions(
-        title=f"Final Agent Positions (Tick {params.numticks})",
+        title=f"Final Agent Positions (Tick {params.numticks}) - Guys Only",
         color_by_group=True,
-        save_path="final_positions.png"
+        save_path="final_positions_guys_only.png"
+    )
+
+    print("Plotting final positions (with infobits)...")
+    params.show_infobits = True
+    model.plot_current_positions(
+        title=f"Final Agent Positions (Tick {params.numticks}) - With Infobits",
+        color_by_group=True,
+        save_path="final_positions_with_infobits.png"
     )
 
     print("\nPlots saved successfully!")
     print("Generated files:")
-    print("  - initial_positions.png")
+    print("  - initial_positions_guys_only.png")
+    print("  - initial_positions_with_infobits.png")
     for tick in range(0, params.numticks, 5):
-        print(f"  - positions_tick_{tick:03d}.png")
-    print(f"  - positions_tick_{params.numticks-1:03d}.png")
-    print("  - final_positions.png")
+        print(f"  - positions_tick_{tick:03d}_with_infobits.png")
+    if (params.numticks - 1) % 5 != 0:
+        print(f"  - positions_tick_{params.numticks-1:03d}_with_infobits.png")
+    print("  - final_positions_guys_only.png")
+    print("  - final_positions_with_infobits.png")
 
 if __name__ == "__main__":
     main()
