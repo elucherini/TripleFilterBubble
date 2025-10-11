@@ -71,6 +71,8 @@ class Infobit:
 class BiAdj:
     g2i: dict[GuyId, set[InfobitId]] = field(default_factory=lambda: defaultdict(set))
     i2g: dict[InfobitId, set[GuyId]] = field(default_factory=lambda: defaultdict(set))
+    # Track who shared each infobit to each guy: (guy_id, infobit_id) -> sharer_guy_id
+    sharer: dict[tuple[GuyId, InfobitId], GuyId] = field(default_factory=dict)
     # Optional callbacks for logging changes (wired by storage):
     _on_add: Callable[[GuyId, InfobitId], None] | None = None
     _on_remove: Callable[[GuyId, InfobitId], None] | None = None
@@ -93,6 +95,8 @@ class BiAdj:
             del self.g2i[gid]
         if not self.i2g[iid]:
             del self.i2g[iid]
+        # Clean up sharer tracking
+        self.sharer.pop((gid, iid), None)
 
     def neighbors_of_guy(self, gid: GuyId) -> set[InfobitId]:
         """Get all infobits connected to a guy."""
@@ -128,4 +132,6 @@ class BiAdj:
             del self.i2g[iid]
         if self._on_remove:
             self._on_remove(gid, iid)
+        # Clean up sharer tracking
+        self.sharer.pop((gid, iid), None)
         return True
