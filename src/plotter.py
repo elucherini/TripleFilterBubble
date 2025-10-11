@@ -13,7 +13,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
 if TYPE_CHECKING:
-    from models import Guy, GuyId
+    from models import Guy, GuyId, Infobit, InfobitId
     from global_params import Params
 
 
@@ -57,10 +57,13 @@ class PositionPlotter:
         title: str = "Agent Positions in Opinion Space",
         color_by_group: bool = True,
         show_ids: bool = False,
-        save_path: str | None = None
+        save_path: str | None = None,
+        infobits: dict["InfobitId", "Infobit"] | None = None,
+        show_infobits: bool = False,
+        size_by_popularity: bool = False
     ):
         """
-        Plot current positions of all agents.
+        Plot current positions of all agents and optionally infobits.
 
         Args:
             guys: Dictionary mapping GuyId to Guy objects
@@ -68,6 +71,9 @@ class PositionPlotter:
             color_by_group: If True, color agents by their group membership
             show_ids: If True, annotate each agent with their ID
             save_path: If provided, save the plot to this path instead of showing
+            infobits: Optional dictionary mapping InfobitId to Infobit objects
+            show_infobits: If True and infobits provided, plot infobits on the same axes
+            size_by_popularity: If True, scale infobit markers by popularity
         """
         if self.fig is None or self.ax is None:
             self.setup_figure()
@@ -123,6 +129,37 @@ class PositionPlotter:
                     fontsize=6,
                     alpha=0.7
                 )
+
+        # Plot infobits if requested
+        if show_infobits and infobits:
+            infobit_positions = np.array([info.position for info in infobits.values()])
+
+            if size_by_popularity:
+                # Scale marker size by popularity (min size 10, max size 200)
+                popularities = np.array([info.popularity for info in infobits.values()])
+                if popularities.max() > 0:
+                    # Normalize popularities and scale to reasonable marker sizes
+                    sizes = 10 + (popularities / popularities.max()) * 190
+                else:
+                    sizes = 20
+            else:
+                sizes = 20
+
+            self.ax.scatter(
+                infobit_positions[:, 0],
+                infobit_positions[:, 1],
+                marker='x',
+                c='gray',
+                alpha=0.5,
+                s=sizes,
+                linewidths=1.5,
+                label='Infobits'
+            )
+
+            # Add legend to distinguish guys from infobits
+            if not color_by_group:
+                # Only add legend if we don't already have a colorbar
+                self.ax.legend(loc='upper right')
 
         if save_path:
             self.fig.savefig(save_path, dpi=150, bbox_inches='tight')
