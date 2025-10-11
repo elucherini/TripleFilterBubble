@@ -29,10 +29,12 @@ class PositionPlotter:
         params: Simulation parameters for world bounds and styling
         fig: Matplotlib figure object
         ax: Matplotlib axes object
+        _colorbar: Reference to current colorbar (if any)
     """
     params: "Params"
     fig: Figure | None = None
     ax: Axes | None = None
+    _colorbar = None
 
     def setup_figure(self, figsize: tuple[float, float] = (10, 10)):
         """
@@ -70,6 +72,11 @@ class PositionPlotter:
         if self.fig is None or self.ax is None:
             self.setup_figure()
 
+        # Remove previous colorbar if it exists
+        if self._colorbar is not None:
+            self._colorbar.remove()
+            self._colorbar = None
+
         # Clear previous plot
         self.ax.clear()
         self.ax.set_xlim(-self.params.max_pxcor, self.params.max_pxcor)
@@ -95,9 +102,9 @@ class PositionPlotter:
                 edgecolors='black',
                 linewidths=0.5
             )
-            # Add colorbar
-            cbar = self.fig.colorbar(scatter, ax=self.ax)
-            cbar.set_label('Group')
+            # Add colorbar and keep reference
+            self._colorbar = self.fig.colorbar(scatter, ax=self.ax)
+            self._colorbar.set_label('Group')
         else:
             self.ax.scatter(
                 positions[:, 0],
@@ -129,3 +136,4 @@ class PositionPlotter:
             plt.close(self.fig)
             self.fig = None
             self.ax = None
+            self._colorbar = None
