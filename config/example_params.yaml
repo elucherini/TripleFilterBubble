@@ -1,0 +1,119 @@
+# TripleFilterBubble Simulation Parameters
+# Example configuration file for running simulations with custom parameters
+
+# === Visualization Settings ===
+# (kept for parity with NetLogo; most not used in Python implementation)
+show_people: true
+show_infobits: false
+infobit_size: false
+show_infolinks: true
+show_friend_links: false
+show_infosharer_links: false
+patch_color: "white"
+color_axis_max: 0.05
+
+# === Core Model Parameters ===
+
+# Memory: Number of infobits each agent can hold (older ones forgotten)
+memory: 20
+
+# Acceptance latitude (lambda): Distance threshold for accepting information
+# Agents accept infobits within this distance in opinion space
+acceptance_latitude: 0.3
+
+# Acceptance sharpness (k): Steepness of the acceptance probability function
+# Higher values = sharper cutoff at the acceptance threshold
+acceptance_sharpness: 20.0
+
+# === Population & Network ===
+
+# Number of agents in the simulation
+numguys: 500
+
+# Average number of friends per agent
+numfriends: 20
+
+# Network structure type
+# Options: "groups" (group-based with inter/intra-group connections)
+#          "watts-strogatz" (small-world network)
+network_type: "groups"
+
+# Number of groups (only used with network_type="groups")
+numgroups: 4
+
+# Fraction of inter-group connections (only used with network_type="groups")
+# Range: 0.0 to 1.0
+fraction_inter: 0.2
+
+# Dimensionality of opinion space
+# Options: 1 (one-dimensional) or 2 (two-dimensional)
+dims: 2
+
+# === Network Dynamics ===
+
+# Probability that an agent is replaced with a new agent each tick
+# Range: 0.0 (no replacement) to 1.0 (all replaced)
+birth_death_probability: 0.0
+
+# Probability that agents rewire friendships toward opinion similarity
+# Range: 0.0 (static network) to 1.0 (maximum rewiring)
+refriend_probability: 0.0
+
+# === Information Dynamics ===
+
+# Number of central infobits per tick (used in "central" mode)
+numcentral: 1
+
+# Information mode - how new information enters the system
+# Options:
+#   "central" - One shared infobit per tick that nearby agents integrate
+#   "individual" - Each agent creates their own infobit at their position
+#   "select close infobits" - Agents try to integrate existing nearby infobits
+#   "select distant infobits" - Agents try to integrate existing distant infobits
+new_info_mode: "central"
+
+# Whether agents share (post) their infobits with friends
+posting: true
+
+# === Simulation Control ===
+
+# Number of simulation ticks to run
+numticks: 100
+
+# Plotting update frequency (if visualization enabled)
+plot_update_every: 20
+
+# Plot every N ticks (0 = disabled, >0 = plot every N ticks)
+plot_every_n_ticks: 0
+
+# === World Geometry ===
+
+# Half-width/height of the opinion space world
+# Coordinates range from [-max_pxcor, max_pxcor] in each dimension
+max_pxcor: 16.0
+
+# Whether to quantize positions when storing (for compression)
+quantize: true
+
+# Quantization scale (for 16-bit integer conversion)
+quantization_scale: 65535.0
+
+# === Reproducibility ===
+
+# Random seed for reproducible results
+seed: 42
+
+# === Output ===
+
+# Directory where simulation results will be stored
+run_dir: "data"
+
+# === Measurements ===
+
+# List of tick numbers at which to compute detailed metrics
+# Examples: [10, 50, 100] or [] for no measurements
+# Measurements include:
+#   - Mean link length (social distance between info-sharers)
+#   - Mean infosharer distance (distance between agents sharing same info)
+#   - Mean friend distance (distance between connected agents)
+measurement_ticks: []
