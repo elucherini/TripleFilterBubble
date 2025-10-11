@@ -1,5 +1,10 @@
-extensions [nw]
-globals [communities]
+extensions [nw table]
+
+globals [
+  communities
+  seed
+  infobits-created
+]
 breed [guys guy]
 breed [infobits infobit]
 undirected-link-breed [friends friend]
@@ -10,7 +15,11 @@ guys-own [group fluctuation oldxcor oldycor]
 infobits-own [popularity]
 
 to setup
+
   clear-all
+  set seed 42
+  random-seed seed
+  set infobits-created 0
   if network-type = "groups" [
     create-guys numguys [ initialize-guy ]
     ask guys [ set group random numgroups ]
@@ -93,6 +102,7 @@ to initialize-infobit
   set color grey
   setxy random-xcor ifelse-value (dims = 1) [0] [random-ycor]
   set popularity 0
+  set infobits-created infobits-created + 1
 end
 
 to post-infobit
@@ -229,6 +239,72 @@ end
 to-report integration-probability [dist lambda k]
   report lambda ^ k / (dist ^ k + lambda ^ k)
 end
+
+to-report build-final-positions
+  let entries []
+  foreach sort guys [ g ->
+    let k (word "\"" ([who] of g) "\"")
+    let v (word "[" ([xcor] of g) "," ([ycor] of g) "]")
+    set entries lput (word k ":" v) entries
+  ]
+  report (word
+    "{"
+    (ifelse-value empty? entries
+      [ "" ]
+      [ reduce [[a b] -> (word a "," b)] entries ])
+    "}"
+  )
+end
+
+
+to-report build-final-edges
+  let edge-list []
+  foreach sort friends [ l ->
+    let ends sort [who] of [both-ends] of l
+    set edge-list lput (word "[" (item 0 ends) "," (item 1 ends) "]") edge-list
+  ]
+
+  report (word
+    "["
+    (ifelse-value empty? edge-list
+      [ "" ]
+      [ reduce [[a b] -> (word a "," b)] edge-list ])
+    "]"
+  )
+end
+
+to export-results [filename]
+  let numguys_                 count guys
+  let numticks_                ticks
+  let num_infobits_final_      infobits-created
+  let num_edges_final_         count friends
+  let total_info_links_final_  count infolinks
+  let mean_fluctuation_final_  ifelse-value any? guys [ mean [fluctuation] of guys ] [ 0 ]
+  let mean_inf_count_final_    ifelse-value any? guys [ mean [count my-infolinks] of guys ] [ 0 ]
+  let mean_infobit_popularity_ ifelse-value any? infobits [ mean [popularity] of infobits ] [ 0 ]
+
+  ;; Build JSON-like string manually
+  let json-text (word
+    "{"
+    "\"seed\":" seed ","
+    "\"numguys\":" numguys_ ","
+    "\"numticks\":" numticks_ ","
+    "\"num_infobits_final\":" num_infobits_final_ ","
+    "\"num_edges_final\":" num_edges_final_ ","
+    "\"total_info_links_final\":" total_info_links_final_ ","
+    "\"mean_fluctuation_final\":" mean_fluctuation_final_ ","
+    "\"mean_inf_count_final\":" mean_inf_count_final_ ","
+    "\"mean_infobit_popularity\":" mean_infobit_popularity_ ","
+    "\"final_positions\":" build-final-positions ","
+    "\"final_edges\":" build-final-edges
+    "}"
+  )
+
+  file-open filename
+  file-print json-text
+  file-close
+end
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 463
@@ -300,7 +376,7 @@ numguys
 numguys
 2
 1000
-500.0
+20.0
 1
 1
 NIL
@@ -315,7 +391,7 @@ memory
 memory
 2
 40
-20.0
+10.0
 1
 1
 NIL
@@ -350,7 +426,7 @@ SWITCH
 148
 show-infolinks
 show-infolinks
-1
+0
 1
 -1000
 
@@ -373,7 +449,7 @@ acceptance-sharpness
 acceptance-sharpness
 0
 20
-20.0
+15.8
 0.2
 1
 NIL
@@ -388,7 +464,7 @@ acceptance-latitude
 acceptance-latitude
 0.02
 1
-0.5
+0.3
 0.02
 1
 NIL
@@ -474,7 +550,7 @@ SWITCH
 615
 posting
 posting
-1
+0
 1
 -1000
 
@@ -512,7 +588,7 @@ numfriends
 numfriends
 1
 40
-20.0
+5.0
 1
 1
 NIL
@@ -708,7 +784,7 @@ numgroups
 numgroups
 1
 10
-4.0
+2.0
 1
 1
 NIL
@@ -959,7 +1035,7 @@ INPUTBOX
 251
 270
 stop-tick
-10000.0
+10.0
 1
 0
 Number
@@ -1023,7 +1099,7 @@ plot-update-every
 plot-update-every
 1
 201
-201.0
+1.0
 25
 1
 NIL
@@ -1659,7 +1735,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.4
+NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@

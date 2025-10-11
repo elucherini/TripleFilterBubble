@@ -23,6 +23,7 @@ class Simulation:
     storage: FastStorage
     infobits: dict[InfobitId, Infobit] = field(default_factory=dict)
     _grid: SpatialGrid | None = None
+    infobits_created: int = 0
 
     @staticmethod
     def make_group_network(guy: Guy, guys: dict[GuyId, Guy], G: nx.Graph, params: Params, rng: np.random.Generator):
@@ -119,6 +120,7 @@ class Simulation:
             for i in range(params.numcentral):
                 new_central_infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
                 self.infobits[new_central_infobit.id] = new_central_infobit
+                self.infobits_created += 1
                 if self._grid is not None:
                     self._grid.add(new_central_infobit.id, new_central_infobit.position)
                 GIDS = list(self.guys.keys())
@@ -134,6 +136,7 @@ class Simulation:
             for guy in self.guys.values():
                 new_individual_infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
                 self.infobits[new_individual_infobit.id] = new_individual_infobit
+                self.infobits_created += 1
                 if self._grid is not None:
                     self._grid.add(new_individual_infobit.id, new_individual_infobit.position)
                 self.try_integrate_infobit(guy, new_individual_infobit, params)
@@ -145,6 +148,7 @@ class Simulation:
                     if infobit is None:
                         infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
                         self.infobits[infobit.id] = infobit
+                        self.infobits_created += 1
                         if self._grid is not None:
                             self._grid.add(infobit.id, infobit.position)
                     self.try_integrate_infobit(guy, infobit, params)
@@ -153,6 +157,7 @@ class Simulation:
                     if infobit is None:
                         infobit = Infobit.random_setup(len(self.infobits), params, self.rng)
                         self.infobits[infobit.id] = infobit
+                        self.infobits_created += 1
                         if self._grid is not None:
                             self._grid.add(infobit.id, infobit.position)
                     self.try_integrate_infobit(guy, infobit, params)

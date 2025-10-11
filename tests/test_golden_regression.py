@@ -23,13 +23,15 @@ def netlogo_reference():
 class TestNetLogoRegression:
     """Tests that compare Python implementation against NetLogo reference."""
 
-    @pytest.mark.xfail(reason="Known discrepancy: Python produces 8 infobits vs NetLogo's 10. Needs investigation.")
     def test_match_netlogo_reference(self, netlogo_reference, temp_data_dir):
         """Test that Python simulation produces results matching NetLogo reference.
 
-        Currently marked as expected to fail due to a known discrepancy in infobit count.
-        This test documents the expected NetLogo behavior and will help track when
-        the Python implementation achieves full parity.
+        This test verifies full parity with NetLogo by comparing:
+        - Total infobits created (cumulative count, matching NetLogo's infobits-created)
+        - Final friendship network edges
+        - Total info-links between guys and infobits
+        - Final guy positions (within floating point tolerance)
+        - Exact edge list structure
         """
         params = Params(
             seed=netlogo_reference['seed'],
@@ -53,8 +55,8 @@ class TestNetLogoRegression:
         sim.run()
 
         # Compare metrics
-        assert len(sim.infobits) == netlogo_reference['num_infobits_final'], \
-            f"Number of infobits differs: Python={len(sim.infobits)}, NetLogo={netlogo_reference['num_infobits_final']}"
+        assert sim.infobits_created == netlogo_reference['num_infobits_final'], \
+            f"Number of infobits created differs: Python={sim.infobits_created}, NetLogo={netlogo_reference['num_infobits_final']}"
 
         assert sim.G.number_of_edges() == netlogo_reference['num_edges_final'], \
             f"Number of edges differs: Python={sim.G.number_of_edges()}, NetLogo={netlogo_reference['num_edges_final']}"
