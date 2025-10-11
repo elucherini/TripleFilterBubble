@@ -13,6 +13,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
 if TYPE_CHECKING:
+    import networkx as nx
     from models import Guy, GuyId, Infobit, InfobitId, BiAdj
     from global_params import Params
 
@@ -62,7 +63,9 @@ class PositionPlotter:
         show_infobits: bool = False,
         size_by_popularity: bool = False,
         H: "BiAdj | None" = None,
-        show_infolinks: bool = False
+        show_infolinks: bool = False,
+        G: "nx.Graph | None" = None,
+        show_friend_links: bool = False
     ):
         """
         Plot current positions of all agents and optionally infobits.
@@ -184,6 +187,23 @@ class PositionPlotter:
                             linewidth=2,
                             zorder=0
                         )
+
+        # Draw friend links if requested
+        if show_friend_links and G:
+            # Draw lines between friends in the social network
+            for edge in G.edges():
+                guy1_id, guy2_id = edge
+                if guy1_id in guys and guy2_id in guys:
+                    pos1 = guys[guy1_id].position
+                    pos2 = guys[guy2_id].position
+                    self.ax.plot(
+                        [pos1[0], pos2[0]],
+                        [pos1[1], pos2[1]],
+                        color='blue',
+                        alpha=0.3,
+                        linewidth=2,
+                        zorder=0
+                    )
 
         if save_path:
             self.fig.savefig(save_path, dpi=150, bbox_inches='tight')
