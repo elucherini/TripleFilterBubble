@@ -355,7 +355,8 @@ def main():
     profiler = cProfile.Profile()
     profiler.enable()
     params = Params()
-    model = Simulation.from_params(params)
+    enable_plotting = params.plot_every_n_ticks > 0
+    model = Simulation.from_params(params, enable_plotting=enable_plotting)
     model.run()
     profiler.disable()
     profiler.dump_stats(f"{stats_name}.prof")
