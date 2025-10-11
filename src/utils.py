@@ -42,9 +42,9 @@ class FastStorage:
         self.run_dir = Path(params.run_dir)
         self.guy_ids: np.ndarray | None = None
 
-        # positions + infobits (existing)
-        self.guy_filename: str = "guy_positions_TxNx2_int16.npy"
-        self.infobit_filename: str = "infobits_final_int16.npy"
+        # positions + infobits (using uint16 for quantized positions)
+        self.guy_filename: str = "guy_positions_TxNx2_uint16.npy"
+        self.infobit_filename: str = "infobits_final_uint16.npy"
         self.infobit_ids_filename: str = "infobit_ids.npy"
 
         # Guy↔Guy graph (upper-tri bitset per tick)
@@ -93,9 +93,9 @@ class FastStorage:
         self.gid2idx = {int(gid): i for i, gid in enumerate(self.guy_ids)}
         N = self.guy_ids.shape[0]
 
-        # Positions memmap (existing)
+        # Positions memmap (using uint16 for quantized positions)
         self.pos_mm = np.lib.format.open_memmap(
-            self.run_dir / self.guy_filename, mode="w+", dtype=np.int16, shape=(T, N, 2)
+            self.run_dir / self.guy_filename, mode="w+", dtype=np.uint16, shape=(T, N, 2)
         )
 
         # Graph: precompute (i,j)->bit index table and open bitset memmap
@@ -240,8 +240,10 @@ class FastStorage:
         np.save(self.run_dir / self.bi_counts_filename, self._bi_counts)  # type: ignore
 
         # Save infobit IDs + final positions in the SAME order used for events
-        inf_ids = np.array(self.inf_ids_list, dtype=np.int64)
-        inf_xy = np.empty((len(inf_ids), 2), dtype=np.int16)
+        # Note: Some infobits may have been created then removed, so filter to existing ones
+        existing_iids = [iid for iid in self.inf_ids_list if iid in infobits]
+        inf_ids = np.array(existing_iids, dtype=np.int64)
+        inf_xy = np.empty((len(inf_ids), 2), dtype=np.uint16)
         for i, iid in enumerate(inf_ids):
             ib = infobits[iid]
             inf_xy[i] = self._quantize(ib.position)
