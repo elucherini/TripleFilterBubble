@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 @dataclass
 class Params:
@@ -40,3 +40,6 @@ class Params:
     seed: int = 42
 
     run_dir: str = "data"
+
+    # Measurement configuration
+    measurement_ticks: list[int] = field(default_factory=list)  # Ticks at which to compute metrics (e.g., [10, 50, 100])
