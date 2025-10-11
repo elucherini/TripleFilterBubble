@@ -78,6 +78,8 @@ class PositionPlotter:
             size_by_popularity: If True, scale infobit markers by popularity
             H: Optional BiAdj structure containing guy-infobit connections
             show_infolinks: If True, draw lines connecting guys to their infobits
+            G: Optional NetworkX graph containing guy-guy friendship connections
+            show_friend_links: If True, draw lines connecting guys to their friends
         """
         if self.fig is None or self.ax is None:
             self.setup_figure()
@@ -179,7 +181,7 @@ class PositionPlotter:
                             [guy_pos[1], infobit_pos[1]],
                             color='gray',
                             alpha=0.15,
-                            linewidth=0.5,
+                            linewidth=2,
                             zorder=0
                         )
 
