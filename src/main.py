@@ -296,13 +296,15 @@ class Simulation:
         color_by_group: bool = True,
         show_ids: bool = False,
         save_path: str | None = None,
-        show_infolinks: bool = False
+        show_infolinks: bool = False,
+        show_friend_links: bool = False
     ):
         """
         Plot current positions of all agents using the integrated plotter.
 
         Infobits are plotted if params.show_infobits is True.
         Infolinks are plotted if show_infolinks is True.
+        Friend links are plotted if show_friend_links is True.
 
         Args:
             title: Plot title (defaults to tick-based title if None)
@@ -310,6 +312,7 @@ class Simulation:
             show_ids: If True, annotate each agent with their ID
             save_path: If provided, save the plot to this path instead of showing
             show_infolinks: If True, draw lines connecting guys to their infobits
+            show_friend_links: If True, draw lines connecting guys to their friends
 
         Raises:
             RuntimeError: If plotter is not enabled for this simulation
@@ -333,7 +336,9 @@ class Simulation:
             show_infobits=self.params.show_infobits,
             size_by_popularity=self.params.infobit_size,
             H=self.H if show_infolinks else None,
-            show_infolinks=show_infolinks
+            show_infolinks=show_infolinks,
+            G=self.G if show_friend_links else None,
+            show_friend_links=show_friend_links
         )
 
 
@@ -364,7 +369,8 @@ class Simulation:
                         title=f"Agent Positions at Tick {tick}",
                         color_by_group=True,
                         save_path=f"positions_tick_{tick:03d}.png",
-                        show_infolinks=self.params.show_infolinks
+                        show_infolinks=self.params.show_infolinks,
+                        show_friend_links=self.params.show_friend_links
                     )
 
             self.storage.write_tick(tick, self.guys)
