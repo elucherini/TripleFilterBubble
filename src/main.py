@@ -414,17 +414,67 @@ class Simulation:
             print("="*60)
 
 def main():
-    stats_name = "posting"
-    profiler = cProfile.Profile()
-    profiler.enable()
-    params = Params()
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Run TripleFilterBubble simulation",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run with default parameters
+  python src/main.py
+
+  # Run with custom YAML config
+  python src/main.py --config config/my_experiment.yaml
+
+  # Disable profiling
+  python src/main.py --no-profile
+"""
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to YAML configuration file. If not provided, uses default parameters."
+    )
+    parser.add_argument(
+        "--no-profile",
+        action="store_true",
+        help="Disable profiling (default: profiling enabled)"
+    )
+    parser.add_argument(
+        "--profile-output",
+        type=str,
+        default="posting.prof",
+        help="Output file for profiling data (default: posting.prof)"
+    )
+
+    args = parser.parse_args()
+
+    # Load parameters
+    if args.config:
+        print(f"Loading configuration from: {args.config}")
+        params = Params.from_yaml(args.config)
+    else:
+        print("Using default parameters")
+        params = Params()
+
+    # Setup profiling
+    if not args.no_profile:
+        profiler = cProfile.Profile()
+        profiler.enable()
+
+    # Run simulation
     enable_plotting = params.plot_every_n_ticks > 0
     model = Simulation.from_params(params, enable_plotting=enable_plotting)
     model.run()
-    profiler.disable()
-    profiler.dump_stats(f"{stats_name}.prof")
 
-    pstats.Stats(f"{stats_name}.prof").sort_stats('tottime').print_stats(30)
+    # Finish profiling
+    if not args.no_profile:
+        profiler.disable()
+        profiler.dump_stats(args.profile_output)
+        print(f"\nProfile saved to: {args.profile_output}")
+        pstats.Stats(args.profile_output).sort_stats('tottime').print_stats(30)
 
 
 if __name__ == "__main__":
