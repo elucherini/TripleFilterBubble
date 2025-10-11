@@ -8,8 +8,6 @@ from utils import FastGeo, FastStorage, SpatialGrid
 import time
 import pstats
 import itertools
-import pathlib
-import zstandard as zstd
 
 
 @dataclass
@@ -323,7 +321,6 @@ def main():
     profiler.dump_stats(f"{stats_name}.prof")
 
     pstats.Stats(f"{stats_name}.prof").sort_stats('tottime').print_stats(30)
-
 
 
 if __name__ == "__main__":
