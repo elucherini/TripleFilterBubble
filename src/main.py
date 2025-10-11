@@ -345,6 +345,17 @@ class Simulation:
             self.update_infobits()
             print(f"Time taken for tick {tick}: {time.time() - start_time} seconds")
             self.visualize()
+
+            # Plot positions if enabled
+            if self.params.plot_every_n_ticks > 0:
+                if tick % self.params.plot_every_n_ticks == 0 or tick == self.params.numticks - 1:
+                    print(f"Plotting positions at tick {tick}...")
+                    self.plot_current_positions(
+                        title=f"Agent Positions at Tick {tick}",
+                        color_by_group=True,
+                        save_path=f"positions_tick_{tick:03d}.png"
+                    )
+
             self.storage.write_tick(tick, self.guys)
             self.storage.write_guy_graph(tick, self.G)
             self.storage.end_tick(tick)
