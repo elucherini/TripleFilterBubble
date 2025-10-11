@@ -6,6 +6,7 @@ import numpy as np
 from dataclasses import dataclass, field
 from utils import FastGeo, FastStorage, SpatialGrid
 from plotter import PositionPlotter
+from metrics import MeasurementResults, compute_metrics
 import time
 import pstats
 import itertools
@@ -24,6 +25,7 @@ class Simulation:
     _grid: SpatialGrid | None = None
     infobits_created: int = 0
     plotter: PositionPlotter | None = None
+    measurements: MeasurementResults | None = None
 
     @staticmethod
     def make_group_network(guy: Guy, guys: dict[GuyId, Guy], G: nx.Graph, params: Params, rng: np.random.Generator):
@@ -83,7 +85,10 @@ class Simulation:
 
         plotter = PositionPlotter(params) if enable_plotting else None
 
-        return Simulation(guys=guys, G=G, H=H, rng=rng, params=params, geo=geo, storage=storage, _grid=grid, plotter=plotter)
+        # Initialize measurements if any measurement ticks are configured
+        measurements = MeasurementResults() if params.measurement_ticks else None
+
+        return Simulation(guys=guys, G=G, H=H, rng=rng, params=params, geo=geo, storage=storage, _grid=grid, plotter=plotter, measurements=measurements)
     
     def _pick_distant_infobit_fast(self, guy: Guy, attempts: int = 32):
         """
@@ -171,10 +176,16 @@ class Simulation:
         # Get all infolinks connected to guy
         return self.H.neighbors_of_guy(guy.id)
 
-    def try_integrate_infobit(self, guy: Guy, infobit: Infobit, params: Params):
-        """ If the infobit is integrated, this updates the guy's position to the mean of 
+    def try_integrate_infobit(self, guy: Guy, infobit: Infobit, params: Params, sharer: Guy | None = None):
+        """ If the infobit is integrated, this updates the guy's position to the mean of
         the infobit's neighbors' positions. If the infobit is not integrated or it is already
         integrated, it does nothing.
+
+        Args:
+            guy: The guy attempting to integrate the infobit
+            infobit: The infobit to integrate
+            params: Simulation parameters
+            sharer: The guy who shared this infobit (None means self-created)
         """
         linked = self.H.g2i[guy.id]
         if infobit.id in linked:
@@ -199,6 +210,8 @@ class Simulation:
             guy.inf_count += 1
             # new mean without allocations / reductions
             guy.position[:] = (guy.inf_sum / guy.inf_count)
+            # Track who shared this infobit (self if None)
+            self.H.sharer[(guy.id, infobit.id)] = sharer.id if sharer else guy.id
 
     def _accept_mask_from_d2(self, d2_array: np.ndarray) -> np.ndarray:
         # p = lam^k / ( (sqrt(d2)*inv_norm)^k + lam^k )
@@ -220,10 +233,10 @@ class Simulation:
                 continue
             F = np.vstack([self.guys[GuyId(fid)].position for fid in friends])
             diff = F - info.position
-            d2 = (diff * diff).sum(axis=1) 
+            d2 = (diff * diff).sum(axis=1)
             mask = self._accept_mask_from_d2(d2)
             for friend_id in np.asarray(friends, dtype=int)[mask]:
-                self.try_integrate_infobit(self.guys[GuyId(friend_id)], info, params)
+                self.try_integrate_infobit(self.guys[GuyId(friend_id)], info, params, sharer=guy)
 
     def birth_death(self, params: Params):
         for gid, guy in self.guys.items():
@@ -358,6 +371,22 @@ class Simulation:
             if self.params.refriend_probability > 0:
                 self.refriend(self.params)
             self.update_infobits()
+
+            # Compute measurements if this tick is configured for measurement
+            if self.measurements is not None and tick in self.params.measurement_ticks:
+                metrics = compute_metrics(self, tick)
+                self.measurements.add_measurement(
+                    tick=tick,
+                    mean_link_length=metrics['mean_link_length'],
+                    mean_infosharer_distance=metrics['mean_infosharer_distance'],
+                    mean_friend_distance=metrics['mean_friend_distance']
+                )
+                ll_str = f"{metrics['mean_link_length']:.4f}" if metrics['mean_link_length'] is not None else 'N/A'
+                isd_str = f"{metrics['mean_infosharer_distance']:.4f}" if metrics['mean_infosharer_distance'] is not None else 'N/A'
+                fd_str = f"{metrics['mean_friend_distance']:.4f}" if metrics['mean_friend_distance'] is not None else 'N/A'
+                print(f"[Tick {tick}] Measurements computed: "
+                      f"link_length={ll_str}, infosharer_dist={isd_str}, friend_dist={fd_str}")
+
             print(f"Time taken for tick {tick}: {time.time() - start_time} seconds")
             self.visualize()
 
@@ -377,6 +406,12 @@ class Simulation:
             self.storage.write_guy_graph(tick, self.G)
             self.storage.end_tick(tick)
         self.storage.finalize(self.infobits)
+
+        # Print measurement summary at the end
+        if self.measurements is not None:
+            print("\n" + "="*60)
+            print(self.measurements)
+            print("="*60)
 
 def main():
     stats_name = "posting"
