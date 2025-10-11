@@ -300,6 +300,8 @@ class Simulation:
         """
         Plot current positions of all agents using the integrated plotter.
 
+        Infobits are plotted if params.show_infobits is True.
+
         Args:
             title: Plot title (defaults to tick-based title if None)
             color_by_group: If True, color agents by their group membership
@@ -323,7 +325,10 @@ class Simulation:
             title=title,
             color_by_group=color_by_group,
             show_ids=show_ids,
-            save_path=save_path
+            save_path=save_path,
+            infobits=self.infobits if self.params.show_infobits else None,
+            show_infobits=self.params.show_infobits,
+            size_by_popularity=self.params.infobit_size
         )
 
 
